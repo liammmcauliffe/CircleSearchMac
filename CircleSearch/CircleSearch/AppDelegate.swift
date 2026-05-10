@@ -1,23 +1,16 @@
-//
-//  AppDelegate.swift
-//  CircleSearch
-//
-//  Created by Liam McAuliffe on 5/9/26.
-//
-
 import Cocoa
 
-
-
-@main
 class AppDelegate: NSObject, NSApplicationDelegate {
 
     var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         
+        let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        AXIsProcessTrustedWithOptions(options as CFDictionary)
+        
         HotkeyManager.shared.onActivated = {
-            print("CircleSearch activated")
+            OverlayWindow.shared.show()
         }
         HotkeyManager.shared.start()
         
