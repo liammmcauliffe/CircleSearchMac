@@ -7,17 +7,18 @@ class PreferencesWindow: NSWindowController {
     private var shortcutButton: NSButton!
     private var statusLabel: NSTextField!
     private var enginePopup: NSPopUpButton!
+    private var modePopup: NSPopUpButton!
     private var isRecording = false
     private var monitor: Any?
     
-    // Pending values - changes live here until Apply is clicked
     private var pendingKeyCode: Int = 0
     private var pendingModifiers: UInt64 = 0
     private var pendingEngine: SearchEngine = .googleLens
+    private var pendingMode: SelectionMode = .lasso
     
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 290),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 370),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -33,49 +34,66 @@ class PreferencesWindow: NSWindowController {
         guard let contentView = window?.contentView else { return }
         
         // Shortcut section
-        let titleLabel = NSTextField(labelWithString: "Activation shortcut")
-        titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        titleLabel.frame = NSRect(x: 20, y: 250, width: 320, height: 20)
-        contentView.addSubview(titleLabel)
+        let shortcutTitle = NSTextField(labelWithString: "Activation shortcut")
+        shortcutTitle.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        shortcutTitle.frame = NSRect(x: 20, y: 330, width: 320, height: 20)
+        contentView.addSubview(shortcutTitle)
         
         shortcutButton = NSButton(title: Preferences.shared.shortcutString, target: self, action: #selector(toggleRecording))
         shortcutButton.bezelStyle = .rounded
-        shortcutButton.frame = NSRect(x: 20, y: 210, width: 320, height: 32)
+        shortcutButton.frame = NSRect(x: 20, y: 290, width: 320, height: 32)
         contentView.addSubview(shortcutButton)
         
         statusLabel = NSTextField(labelWithString: "Click the button, then press your desired key combo.")
         statusLabel.font = NSFont.systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
-        statusLabel.frame = NSRect(x: 20, y: 180, width: 320, height: 16)
+        statusLabel.frame = NSRect(x: 20, y: 260, width: 320, height: 16)
         contentView.addSubview(statusLabel)
         
-        let divider = NSBox(frame: NSRect(x: 20, y: 150, width: 320, height: 1))
-        divider.boxType = .separator
-        contentView.addSubview(divider)
+        let divider1 = NSBox(frame: NSRect(x: 20, y: 240, width: 320, height: 1))
+        divider1.boxType = .separator
+        contentView.addSubview(divider1)
+        
+        // Selection mode section
+        let modeTitle = NSTextField(labelWithString: "Selection mode")
+        modeTitle.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        modeTitle.frame = NSRect(x: 20, y: 205, width: 320, height: 20)
+        contentView.addSubview(modeTitle)
+        
+        modePopup = NSPopUpButton(frame: NSRect(x: 20, y: 165, width: 320, height: 28))
+        modePopup.addItems(withTitles: SelectionMode.allCases.map { $0.rawValue })
+        modePopup.selectItem(withTitle: Preferences.shared.selectionMode.rawValue)
+        modePopup.target = self
+        modePopup.action = #selector(modeChanged)
+        contentView.addSubview(modePopup)
+        
+        let divider2 = NSBox(frame: NSRect(x: 20, y: 145, width: 320, height: 1))
+        divider2.boxType = .separator
+        contentView.addSubview(divider2)
         
         // Engine section
-        let engineLabel = NSTextField(labelWithString: "Search engine")
-        engineLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        engineLabel.frame = NSRect(x: 20, y: 115, width: 320, height: 20)
-        contentView.addSubview(engineLabel)
+        let engineTitle = NSTextField(labelWithString: "Search engine")
+        engineTitle.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        engineTitle.frame = NSRect(x: 20, y: 110, width: 320, height: 20)
+        contentView.addSubview(engineTitle)
         
-        enginePopup = NSPopUpButton(frame: NSRect(x: 20, y: 75, width: 320, height: 28))
+        enginePopup = NSPopUpButton(frame: NSRect(x: 20, y: 70, width: 320, height: 28))
         enginePopup.addItems(withTitles: SearchEngine.allCases.map { $0.rawValue })
         enginePopup.selectItem(withTitle: Preferences.shared.searchEngine.rawValue)
         enginePopup.target = self
         enginePopup.action = #selector(engineChanged)
         contentView.addSubview(enginePopup)
         
-        // Buttons row
+        // Buttons
         let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancelClicked))
         cancelButton.bezelStyle = .rounded
-        cancelButton.keyEquivalent = "\u{1B}"  // Escape
+        cancelButton.keyEquivalent = "\u{1B}"
         cancelButton.frame = NSRect(x: 170, y: 20, width: 80, height: 32)
         contentView.addSubview(cancelButton)
         
         let applyButton = NSButton(title: "Apply", target: self, action: #selector(applyClicked))
         applyButton.bezelStyle = .rounded
-        applyButton.keyEquivalent = "\r"  // Return / Enter
+        applyButton.keyEquivalent = "\r"
         applyButton.frame = NSRect(x: 260, y: 20, width: 80, height: 32)
         contentView.addSubview(applyButton)
     }
@@ -132,10 +150,18 @@ class PreferencesWindow: NSWindowController {
         statusLabel.stringValue = "Pending — click Apply to save"
     }
     
+    @objc private func modeChanged() {
+        guard let title = modePopup.titleOfSelectedItem,
+              let mode = SelectionMode.allCases.first(where: { $0.rawValue == title }) else { return }
+        pendingMode = mode
+        statusLabel.stringValue = "Pending — click Apply to save"
+    }
+    
     @objc private func applyClicked() {
         Preferences.shared.keyCode = pendingKeyCode
         Preferences.shared.modifiers = pendingModifiers
         Preferences.shared.searchEngine = pendingEngine
+        Preferences.shared.selectionMode = pendingMode
         print("Preferences applied")
         window?.close()
     }
@@ -170,14 +196,14 @@ class PreferencesWindow: NSWindowController {
     }
     
     func showWindow() {
-        // Reset pending values to current saved state every time window opens
         pendingKeyCode = Preferences.shared.keyCode
         pendingModifiers = Preferences.shared.modifiers
         pendingEngine = Preferences.shared.searchEngine
+        pendingMode = Preferences.shared.selectionMode
         
-        // Sync UI with current saved values
         shortcutButton.title = Preferences.shared.shortcutString
         enginePopup.selectItem(withTitle: Preferences.shared.searchEngine.rawValue)
+        modePopup.selectItem(withTitle: Preferences.shared.selectionMode.rawValue)
         statusLabel.stringValue = "Click the button, then press your desired key combo."
         
         window?.makeKeyAndOrderFront(nil)

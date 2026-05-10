@@ -1,5 +1,10 @@
 import Cocoa
 
+enum SelectionMode: String, CaseIterable {
+    case lasso = "Lasso (freeform)"
+    case rectangle = "Rectangle"
+}
+
 enum SearchEngine: String, CaseIterable {
     case googleLens = "Google Lens"
     case yandex = "Yandex"
@@ -25,6 +30,7 @@ class Preferences {
     private let keyCodeKey = "hotkey.keyCode"
     private let modifiersKey = "hotkey.modifiers"
     private let engineKey = "search.engine"
+    private let selectionModeKey = "selection.mode"
     
     // Default: Cmd + Control + S
     var keyCode: Int {
@@ -45,6 +51,14 @@ class Preferences {
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: engineKey)
         }
+    }
+    
+    var selectionMode: SelectionMode {
+        get {
+            let raw = UserDefaults.standard.string(forKey: selectionModeKey) ?? SelectionMode.lasso.rawValue
+            return SelectionMode(rawValue: raw) ?? .lasso
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: selectionModeKey) }
     }
     
     // Human-readable shortcut for display

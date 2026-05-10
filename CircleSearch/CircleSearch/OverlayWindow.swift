@@ -14,7 +14,7 @@ class OverlayWindow: NSWindow {
         )
         
         self.level = .screenSaver
-        self.backgroundColor = NSColor.black.withAlphaComponent(0.3)
+        self.backgroundColor = NSColor.clear
         self.isOpaque = false
         self.ignoresMouseEvents = false
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
