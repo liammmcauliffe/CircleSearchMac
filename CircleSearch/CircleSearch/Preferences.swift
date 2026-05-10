@@ -31,6 +31,7 @@ class Preferences {
     private let modifiersKey = "hotkey.modifiers"
     private let engineKey = "search.engine"
     private let selectionModeKey = "selection.mode"
+    private let launchAtLoginKey = "launchAtLogin"
     
     // Default: Cmd + Control + S
     var keyCode: Int {
@@ -59,6 +60,11 @@ class Preferences {
             return SelectionMode(rawValue: raw) ?? .lasso
         }
         set { UserDefaults.standard.set(newValue.rawValue, forKey: selectionModeKey) }
+    }
+
+    var launchAtLogin: Bool {
+        get { UserDefaults.standard.bool(forKey: launchAtLoginKey) }
+        set { UserDefaults.standard.set(newValue, forKey: launchAtLoginKey) }
     }
     
     // Human-readable shortcut for display

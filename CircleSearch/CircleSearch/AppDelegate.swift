@@ -17,8 +17,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "magnifyingglass.circle", accessibilityDescription: "CircleSearch")
-        }
+            let image = NSImage(named: "MenuBarIcon")
+            image?.isTemplate = true  // ensures auto light/dark tinting
+            button.image = image
+        }   
 
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "CircleSearch is running", action: nil, keyEquivalent: ""))
