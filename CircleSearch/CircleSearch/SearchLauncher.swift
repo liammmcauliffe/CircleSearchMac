@@ -1,12 +1,13 @@
 import Cocoa
 
 class SearchLauncher {
-    static func openGoogleLens(imageURL: String) {
-        let encoded = imageURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? imageURL
-        let lensURL = "https://lens.google.com/uploadbyurl?url=\(encoded)"
+    static func search(imageURL: String) {
+        let engine = Preferences.shared.searchEngine
+        let urlString = engine.url(for: imageURL)
         
-        if let url = URL(string: lensURL) {
+        if let url = URL(string: urlString) {
             NSWorkspace.shared.open(url)
+            print("🔍 Opened \(engine.rawValue)")
         }
     }
 }

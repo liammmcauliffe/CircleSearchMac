@@ -1,11 +1,30 @@
 import Cocoa
 
+enum SearchEngine: String, CaseIterable {
+    case googleLens = "Google Lens"
+    case yandex = "Yandex"
+    case bing = "Bing Visual Search"
+    
+    func url(for imageURL: String) -> String {
+        let encoded = imageURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? imageURL
+        switch self {
+        case .googleLens:
+            return "https://lens.google.com/uploadbyurl?url=\(encoded)"
+        case .yandex:
+            return "https://yandex.com/images/search?rpt=imageview&url=\(encoded)"
+        case .bing:
+            return "https://www.bing.com/images/search?view=detailv2&iss=sbi&form=SBIVSP&sbisrc=UrlPaste&q=imgurl:\(encoded)"
+        }
+    }
+}
+
 class Preferences {
     
     static let shared = Preferences()
     
     private let keyCodeKey = "hotkey.keyCode"
     private let modifiersKey = "hotkey.modifiers"
+    private let engineKey = "search.engine"
     
     // Default: Cmd + Control + S
     var keyCode: Int {
@@ -16,6 +35,16 @@ class Preferences {
     var modifiers: UInt64 {
         get { UserDefaults.standard.object(forKey: modifiersKey) as? UInt64 ?? (CGEventFlags.maskCommand.rawValue | CGEventFlags.maskControl.rawValue) }
         set { UserDefaults.standard.set(newValue, forKey: modifiersKey) }
+    }
+    
+    var searchEngine: SearchEngine {
+        get {
+            let raw = UserDefaults.standard.string(forKey: engineKey) ?? SearchEngine.googleLens.rawValue
+            return SearchEngine(rawValue: raw) ?? .googleLens
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: engineKey)
+        }
     }
     
     // Human-readable shortcut for display

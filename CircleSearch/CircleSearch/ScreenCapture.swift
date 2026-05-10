@@ -3,17 +3,19 @@ import ScreenCaptureKit
 
 class ScreenCapture {
     
-    static func capture(rect: NSRect) async -> NSImage? {
+    static func capture(rect: NSRect, on screen: NSScreen) async -> NSImage? {
         do {
-            // Get the available content (displays, windows)
             let content = try await SCShareableContent.current
             
-            guard let display = content.displays.first else {
+            // Find the SCDisplay matching this NSScreen by display ID
+            let screenID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value
+            
+            guard let display = content.displays.first(where: { $0.displayID == screenID })
+                            ?? content.displays.first else {
                 print("No display found")
                 return nil
             }
             
-            // Configure what to capture
             let filter = SCContentFilter(display: display, excludingWindows: [])
             
             let config = SCStreamConfiguration()
@@ -21,28 +23,41 @@ class ScreenCapture {
             config.height = Int(display.height)
             config.showsCursor = false
             
-            // Capture a single frame
             let cgImage = try await SCScreenshotManager.captureImage(
                 contentFilter: filter,
                 configuration: config
             )
             
-            // Crop to the selected rect
-            // Convert view coords (bottom-left) to image coords (top-left)
-            let screenHeight = CGFloat(display.height)
-            let cropRect = CGRect(
-                x: rect.origin.x,
-                y: screenHeight - rect.origin.y - rect.height,
-                width: rect.width,
-                height: rect.height
+            // Compute true scale from captured pixels vs screen points
+            // This handles all scaling modes (including fractional / "More Space" displays)
+            let scaleX = CGFloat(cgImage.width) / screen.frame.width
+            let scaleY = CGFloat(cgImage.height) / screen.frame.height
+            let imageHeight = CGFloat(cgImage.height)
+            
+            // Convert view coords (points, bottom-left) → image coords (pixels, top-left)
+            var cropRect = CGRect(
+                x: rect.origin.x * scaleX,
+                y: imageHeight - (rect.origin.y * scaleY) - (rect.height * scaleY),
+                width: rect.width * scaleX,
+                height: rect.height * scaleY
             )
             
-            guard let cropped = cgImage.cropping(to: cropRect) else {
-                print("Failed to crop image")
+            // Clamp to image bounds — prevents "Failed to crop" when rect rounds outside
+            let imageBounds = CGRect(x: 0, y: 0, width: cgImage.width, height: cgImage.height)
+            cropRect = cropRect.intersection(imageBounds)
+            
+            guard !cropRect.isNull, !cropRect.isEmpty else {
+                print("Crop rect outside image bounds")
                 return nil
             }
             
-            return NSImage(cgImage: cropped, size: rect.size)
+            guard let cropped = cgImage.cropping(to: cropRect) else {
+                print("Failed to crop. Rect: \(cropRect), image: \(cgImage.width)×\(cgImage.height)")
+                return nil
+            }
+            
+            let outputSize = NSSize(width: cropRect.width / scaleX, height: cropRect.height / scaleY)
+            return NSImage(cgImage: cropped, size: outputSize)
             
         } catch {
             print("Capture failed: \(error)")

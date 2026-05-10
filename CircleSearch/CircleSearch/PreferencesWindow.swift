@@ -6,12 +6,18 @@ class PreferencesWindow: NSWindowController {
     
     private var shortcutButton: NSButton!
     private var statusLabel: NSTextField!
+    private var enginePopup: NSPopUpButton!
     private var isRecording = false
     private var monitor: Any?
     
+    // Pending values - changes live here until Apply is clicked
+    private var pendingKeyCode: Int = 0
+    private var pendingModifiers: UInt64 = 0
+    private var pendingEngine: SearchEngine = .googleLens
+    
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 180),
+            contentRect: NSRect(x: 0, y: 0, width: 360, height: 290),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -26,51 +32,78 @@ class PreferencesWindow: NSWindowController {
     private func setupUI() {
         guard let contentView = window?.contentView else { return }
         
+        // Shortcut section
         let titleLabel = NSTextField(labelWithString: "Activation shortcut")
         titleLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        titleLabel.frame = NSRect(x: 20, y: 130, width: 320, height: 20)
+        titleLabel.frame = NSRect(x: 20, y: 250, width: 320, height: 20)
         contentView.addSubview(titleLabel)
         
         shortcutButton = NSButton(title: Preferences.shared.shortcutString, target: self, action: #selector(toggleRecording))
         shortcutButton.bezelStyle = .rounded
-        shortcutButton.frame = NSRect(x: 20, y: 90, width: 320, height: 32)
+        shortcutButton.frame = NSRect(x: 20, y: 210, width: 320, height: 32)
         contentView.addSubview(shortcutButton)
         
         statusLabel = NSTextField(labelWithString: "Click the button, then press your desired key combo.")
         statusLabel.font = NSFont.systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
-        statusLabel.frame = NSRect(x: 20, y: 60, width: 320, height: 16)
+        statusLabel.frame = NSRect(x: 20, y: 180, width: 320, height: 16)
         contentView.addSubview(statusLabel)
+        
+        let divider = NSBox(frame: NSRect(x: 20, y: 150, width: 320, height: 1))
+        divider.boxType = .separator
+        contentView.addSubview(divider)
+        
+        // Engine section
+        let engineLabel = NSTextField(labelWithString: "Search engine")
+        engineLabel.font = NSFont.systemFont(ofSize: 13, weight: .medium)
+        engineLabel.frame = NSRect(x: 20, y: 115, width: 320, height: 20)
+        contentView.addSubview(engineLabel)
+        
+        enginePopup = NSPopUpButton(frame: NSRect(x: 20, y: 75, width: 320, height: 28))
+        enginePopup.addItems(withTitles: SearchEngine.allCases.map { $0.rawValue })
+        enginePopup.selectItem(withTitle: Preferences.shared.searchEngine.rawValue)
+        enginePopup.target = self
+        enginePopup.action = #selector(engineChanged)
+        contentView.addSubview(enginePopup)
+        
+        // Buttons row
+        let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancelClicked))
+        cancelButton.bezelStyle = .rounded
+        cancelButton.keyEquivalent = "\u{1B}"  // Escape
+        cancelButton.frame = NSRect(x: 170, y: 20, width: 80, height: 32)
+        contentView.addSubview(cancelButton)
+        
+        let applyButton = NSButton(title: "Apply", target: self, action: #selector(applyClicked))
+        applyButton.bezelStyle = .rounded
+        applyButton.keyEquivalent = "\r"  // Return / Enter
+        applyButton.frame = NSRect(x: 260, y: 20, width: 80, height: 32)
+        contentView.addSubview(applyButton)
     }
     
     @objc private func toggleRecording() {
-        if isRecording {
-            stopRecording()
-        } else {
-            startRecording()
-        }
+        if isRecording { stopRecording() } else { startRecording() }
     }
     
     private func startRecording() {
         isRecording = true
-        HotkeyManager.shared.isPaused = true   // ← add this
+        HotkeyManager.shared.isPaused = true
         shortcutButton.title = "Press a key combination..."
         statusLabel.stringValue = "Press any key with at least one modifier (⌘ ⌃ ⌥ ⇧)"
         
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             self?.handleKeyEvent(event)
-            return nil // swallow the event
+            return nil
         }
     }
     
     private func stopRecording() {
         isRecording = false
-        HotkeyManager.shared.isPaused = false   // ← add this
+        HotkeyManager.shared.isPaused = false
         if let monitor = monitor {
             NSEvent.removeMonitor(monitor)
             self.monitor = nil
         }
-        shortcutButton.title = Preferences.shared.shortcutString
+        shortcutButton.title = pendingShortcutString()
     }
     
     private func handleKeyEvent(_ event: NSEvent) {
@@ -81,19 +114,72 @@ class PreferencesWindow: NSWindowController {
         if modifiers.contains(.option)    { cgFlags |= CGEventFlags.maskAlternate.rawValue }
         if modifiers.contains(.shift)     { cgFlags |= CGEventFlags.maskShift.rawValue }
         
-        // Require at least one modifier so we don't trap normal typing
         guard cgFlags != 0 else {
             statusLabel.stringValue = "Need at least one modifier key (⌘ ⌃ ⌥ ⇧)"
             return
         }
         
-        Preferences.shared.keyCode = Int(event.keyCode)
-        Preferences.shared.modifiers = cgFlags
-        statusLabel.stringValue = "Saved! New shortcut: \(Preferences.shared.shortcutString)"
+        pendingKeyCode = Int(event.keyCode)
+        pendingModifiers = cgFlags
+        statusLabel.stringValue = "Pending — click Apply to save"
         stopRecording()
     }
     
+    @objc private func engineChanged() {
+        guard let title = enginePopup.titleOfSelectedItem,
+              let engine = SearchEngine.allCases.first(where: { $0.rawValue == title }) else { return }
+        pendingEngine = engine
+        statusLabel.stringValue = "Pending — click Apply to save"
+    }
+    
+    @objc private func applyClicked() {
+        Preferences.shared.keyCode = pendingKeyCode
+        Preferences.shared.modifiers = pendingModifiers
+        Preferences.shared.searchEngine = pendingEngine
+        print("Preferences applied")
+        window?.close()
+    }
+    
+    @objc private func cancelClicked() {
+        if isRecording { stopRecording() }
+        window?.close()
+    }
+    
+    private func pendingShortcutString() -> String {
+        var parts: [String] = []
+        let flags = CGEventFlags(rawValue: pendingModifiers)
+        if flags.contains(.maskControl) { parts.append("⌃") }
+        if flags.contains(.maskAlternate) { parts.append("⌥") }
+        if flags.contains(.maskShift) { parts.append("⇧") }
+        if flags.contains(.maskCommand) { parts.append("⌘") }
+        parts.append(keyCodeToString(pendingKeyCode))
+        return parts.joined()
+    }
+    
+    private func keyCodeToString(_ code: Int) -> String {
+        let map: [Int: String] = [
+            0: "A", 1: "S", 2: "D", 3: "F", 4: "H", 5: "G", 6: "Z", 7: "X",
+            8: "C", 9: "V", 11: "B", 12: "Q", 13: "W", 14: "E", 15: "R",
+            16: "Y", 17: "T", 31: "O", 32: "U", 34: "I", 35: "P", 37: "L",
+            38: "J", 40: "K", 45: "N", 46: "M",
+            18: "1", 19: "2", 20: "3", 21: "4", 22: "6", 23: "5",
+            25: "9", 26: "7", 28: "8", 29: "0",
+            49: "Space"
+        ]
+        return map[code] ?? "?"
+    }
+    
     func showWindow() {
+        // Reset pending values to current saved state every time window opens
+        pendingKeyCode = Preferences.shared.keyCode
+        pendingModifiers = Preferences.shared.modifiers
+        pendingEngine = Preferences.shared.searchEngine
+        
+        // Sync UI with current saved values
+        shortcutButton.title = Preferences.shared.shortcutString
+        enginePopup.selectItem(withTitle: Preferences.shared.searchEngine.rawValue)
+        statusLabel.stringValue = "Click the button, then press your desired key combo."
+        
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

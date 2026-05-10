@@ -27,13 +27,18 @@ class OverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     
     func show() {
-        if let view = self.contentView as? SelectionView {
-            view.reset()
+        // Reposition to current main screen each time
+        if let screen = NSScreen.main {
+            self.setFrame(screen.frame, display: false)
+            if let view = self.contentView as? SelectionView {
+                view.frame = NSRect(origin: .zero, size: screen.frame.size)
+                view.reset()
+            }
         }
+        
         self.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         
-        // Make the selection view the first responder so it gets key events
         if let view = self.contentView {
             self.makeFirstResponder(view)
         }

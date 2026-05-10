@@ -31,15 +31,18 @@ class SelectionView: NSView {
             return
         }
         
+        // Capture the screen the overlay is currently showing on
+        let screen = self.window?.screen ?? NSScreen.main!
+        
         OverlayWindow.shared.hide()
         
         Task {
             try? await Task.sleep(nanoseconds: 150_000_000)
             
-            guard let image = await ScreenCapture.capture(rect: rect) else { return }
+            guard let image = await ScreenCapture.capture(rect: rect, on: screen) else { return }
             
             if let imageURL = await ImageUploader.upload(image) {
-                SearchLauncher.openGoogleLens(imageURL: imageURL)
+                SearchLauncher.search(imageURL: imageURL)
             }
         }
     }
