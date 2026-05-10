@@ -4,6 +4,7 @@ class HotkeyManager {
     
     static let shared = HotkeyManager()
     var onActivated: (() -> Void)?
+    var isPaused = false 
     
     private var eventTap: CFMachPort?
     
@@ -33,14 +34,26 @@ class HotkeyManager {
     }
     
     private func handleEvent(proxy: CGEventTapProxy, type: CGEventType, event: CGEvent) -> Unmanaged<CGEvent>? {
+        // Re-enable the tap if macOS disabled it (timeout or other reasons)
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+                print("Event tap was disabled — re-enabled")
+            }
+            return Unmanaged.passUnretained(event)
+        }
+        
+        if isPaused { return Unmanaged.passUnretained(event) }
+        
         let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-        let flags = event.flags
+        let flags = event.flags.rawValue
         
-        // Combo: Cmd + Control + S
-        let isCmd = flags.contains(.maskCommand)
-        let isControl = flags.contains(.maskControl)
+        let savedKeyCode = Preferences.shared.keyCode
+        let savedModifiers = Preferences.shared.modifiers
         
-        if keyCode == 1 && isCmd && isControl { // keyCode 1 = S
+        let relevantMask: UInt64 = CGEventFlags.maskCommand.rawValue | CGEventFlags.maskControl.rawValue | CGEventFlags.maskShift.rawValue | CGEventFlags.maskAlternate.rawValue
+        
+        if Int(keyCode) == savedKeyCode && (flags & relevantMask) == savedModifiers {
             DispatchQueue.main.async {
                 self.onActivated?()
             }

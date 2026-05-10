@@ -13,17 +13,18 @@ class OverlayWindow: NSWindow {
             defer: false
         )
         
-        // Fullscreen, transparent, on top of everything
         self.level = .screenSaver
         self.backgroundColor = NSColor.black.withAlphaComponent(0.3)
         self.isOpaque = false
         self.ignoresMouseEvents = false
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         
-        // Add the drawing view
         let selectionView = SelectionView(frame: screen)
         self.contentView = selectionView
     }
+    
+    // Allow this borderless window to become key (so it receives keyboard events)
+    override var canBecomeKey: Bool { true }
     
     func show() {
         if let view = self.contentView as? SelectionView {
@@ -31,6 +32,11 @@ class OverlayWindow: NSWindow {
         }
         self.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        
+        // Make the selection view the first responder so it gets key events
+        if let view = self.contentView {
+            self.makeFirstResponder(view)
+        }
     }
     
     func hide() {
