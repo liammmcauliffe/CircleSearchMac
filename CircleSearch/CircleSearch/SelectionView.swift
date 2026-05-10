@@ -26,14 +26,21 @@ class SelectionView: NSView {
     }
     
     override func mouseUp(with event: NSEvent) {
-        guard let rect = currentRect else {
+        guard let rect = currentRect, rect.width > 5, rect.height > 5 else {
             OverlayWindow.shared.hide()
             return
         }
         
-        print("Selected rect: \(rect)")
         OverlayWindow.shared.hide()
-        // Next: we'll capture a screenshot of this rect
+        
+        Task {
+            // Small delay so the overlay is fully hidden before capture
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            
+            if let image = await ScreenCapture.capture(rect: rect) {
+                _ = ScreenCapture.saveToDesktop(image)
+            }
+        }
     }
     
     override func draw(_ dirtyRect: NSRect) {
