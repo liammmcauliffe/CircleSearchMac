@@ -34,11 +34,12 @@ class SelectionView: NSView {
         OverlayWindow.shared.hide()
         
         Task {
-            // Small delay so the overlay is fully hidden before capture
             try? await Task.sleep(nanoseconds: 150_000_000)
             
-            if let image = await ScreenCapture.capture(rect: rect) {
-                _ = ScreenCapture.saveToDesktop(image)
+            guard let image = await ScreenCapture.capture(rect: rect) else { return }
+            
+            if let imageURL = await ImageUploader.upload(image) {
+                SearchLauncher.openGoogleLens(imageURL: imageURL)
             }
         }
     }
