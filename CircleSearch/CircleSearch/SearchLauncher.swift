@@ -7,7 +7,7 @@ class SearchLauncher {
         
         if let url = URL(string: urlString) {
             NSWorkspace.shared.open(url)
-            print("🔍 Opened \(engine.rawValue)")
+            print("Opened \(engine.displayName)")
         }
     }
 }

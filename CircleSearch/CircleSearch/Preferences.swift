@@ -5,10 +5,35 @@ enum SelectionMode: String, CaseIterable {
     case rectangle = "Rectangle"
 }
 
-enum SearchEngine: String, CaseIterable {
-    case googleLens = "Google Lens"
-    case yandex = "Yandex"
-    case bing = "Bing Visual Search"
+struct CustomEngine: Codable, Equatable {
+    let id: String          // UUID for stable identification
+    let name: String        // Display name
+    let urlTemplate: String // URL with {url} placeholder
+}
+
+enum SearchEngine: Equatable {
+    case googleLens
+    case yandex
+    case bing
+    case custom(CustomEngine)
+    
+    var displayName: String {
+        switch self {
+        case .googleLens: return "Google Lens"
+        case .yandex: return "Yandex"
+        case .bing: return "Bing Visual Search"
+        case .custom(let engine): return engine.name
+        }
+    }
+    
+    var identifier: String {
+        switch self {
+        case .googleLens: return "builtin.googleLens"
+        case .yandex: return "builtin.yandex"
+        case .bing: return "builtin.bing"
+        case .custom(let engine): return "custom.\(engine.id)"
+        }
+    }
     
     func url(for imageURL: String) -> String {
         let encoded = imageURL.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? imageURL
@@ -19,7 +44,15 @@ enum SearchEngine: String, CaseIterable {
             return "https://yandex.com/images/search?rpt=imageview&url=\(encoded)"
         case .bing:
             return "https://www.bing.com/images/search?view=detailv2&iss=sbi&form=SBIVSP&sbisrc=UrlPaste&q=imgurl:\(encoded)"
+        case .custom(let engine):
+            return engine.urlTemplate.replacingOccurrences(of: "{url}", with: encoded)
         }
+    }
+    
+    static func allEngines() -> [SearchEngine] {
+        var all: [SearchEngine] = [.googleLens, .yandex, .bing]
+        all.append(contentsOf: Preferences.shared.customEngines.map { SearchEngine.custom($0) })
+        return all
     }
 }
 
@@ -29,7 +62,8 @@ class Preferences {
     
     private let keyCodeKey = "hotkey.keyCode"
     private let modifiersKey = "hotkey.modifiers"
-    private let engineKey = "search.engine"
+    private let engineIdentifierKey = "search.engineIdentifier"
+    private let customEnginesKey = "search.customEngines"
     private let selectionModeKey = "selection.mode"
     private let launchAtLoginKey = "launchAtLogin"
     
@@ -46,11 +80,24 @@ class Preferences {
     
     var searchEngine: SearchEngine {
         get {
-            let raw = UserDefaults.standard.string(forKey: engineKey) ?? SearchEngine.googleLens.rawValue
-            return SearchEngine(rawValue: raw) ?? .googleLens
+            let id = UserDefaults.standard.string(forKey: engineIdentifierKey) ?? "builtin.googleLens"
+            return SearchEngine.allEngines().first(where: { $0.identifier == id }) ?? .googleLens
+        }
+        set { UserDefaults.standard.set(newValue.identifier, forKey: engineIdentifierKey) }
+    }
+    
+    var customEngines: [CustomEngine] {
+        get {
+            guard let data = UserDefaults.standard.data(forKey: customEnginesKey),
+                  let engines = try? JSONDecoder().decode([CustomEngine].self, from: data) else {
+                return []
+            }
+            return engines
         }
         set {
-            UserDefaults.standard.set(newValue.rawValue, forKey: engineKey)
+            if let data = try? JSONEncoder().encode(newValue) {
+                UserDefaults.standard.set(data, forKey: customEnginesKey)
+            }
         }
     }
     

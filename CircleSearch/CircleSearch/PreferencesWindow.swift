@@ -8,19 +8,22 @@ class PreferencesWindow: NSWindowController {
     private var statusLabel: NSTextField!
     private var enginePopup: NSPopUpButton!
     private var modePopup: NSPopUpButton!
+    private var launchAtLoginCheckbox: NSButton!
+    private var addEngineButton: NSButton!
+    private var removeEngineButton: NSButton!
     private var isRecording = false
     private var monitor: Any?
+    private var customEngineDialog: CustomEngineDialog?
     
     private var pendingKeyCode: Int = 0
     private var pendingModifiers: UInt64 = 0
-    private var pendingEngine: SearchEngine = .googleLens
+    private var pendingEngineID: String = ""
     private var pendingMode: SelectionMode = .lasso
-    private var launchAtLoginCheckbox: NSButton!
     private var pendingLaunchAtLogin: Bool = false
     
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 360, height: 410),
+            contentRect: NSRect(x: 0, y: 0, width: 400, height: 430),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -35,79 +38,107 @@ class PreferencesWindow: NSWindowController {
     private func setupUI() {
         guard let contentView = window?.contentView else { return }
         
-        // Shortcut section
+        // Shortcut
         let shortcutTitle = NSTextField(labelWithString: "Activation shortcut")
         shortcutTitle.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        shortcutTitle.frame = NSRect(x: 20, y: 370, width: 320, height: 20)
+        shortcutTitle.frame = NSRect(x: 20, y: 390, width: 360, height: 20)
         contentView.addSubview(shortcutTitle)
         
         shortcutButton = NSButton(title: Preferences.shared.shortcutString, target: self, action: #selector(toggleRecording))
         shortcutButton.bezelStyle = .rounded
-        shortcutButton.frame = NSRect(x: 20, y: 330, width: 320, height: 32)
+        shortcutButton.frame = NSRect(x: 20, y: 350, width: 360, height: 32)
         contentView.addSubview(shortcutButton)
         
         statusLabel = NSTextField(labelWithString: "Click the button, then press your desired key combo.")
         statusLabel.font = NSFont.systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
-        statusLabel.frame = NSRect(x: 20, y: 300, width: 320, height: 16)
+        statusLabel.frame = NSRect(x: 20, y: 320, width: 360, height: 16)
         contentView.addSubview(statusLabel)
         
-        let divider1 = NSBox(frame: NSRect(x: 20, y: 280, width: 320, height: 1))
+        let divider1 = NSBox(frame: NSRect(x: 20, y: 300, width: 360, height: 1))
         divider1.boxType = .separator
         contentView.addSubview(divider1)
         
         // Selection mode
         let modeTitle = NSTextField(labelWithString: "Selection mode")
         modeTitle.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        modeTitle.frame = NSRect(x: 20, y: 245, width: 320, height: 20)
+        modeTitle.frame = NSRect(x: 20, y: 265, width: 360, height: 20)
         contentView.addSubview(modeTitle)
         
-        modePopup = NSPopUpButton(frame: NSRect(x: 20, y: 205, width: 320, height: 28))
+        modePopup = NSPopUpButton(frame: NSRect(x: 20, y: 225, width: 360, height: 28))
         modePopup.addItems(withTitles: SelectionMode.allCases.map { $0.rawValue })
         modePopup.selectItem(withTitle: Preferences.shared.selectionMode.rawValue)
         modePopup.target = self
         modePopup.action = #selector(modeChanged)
         contentView.addSubview(modePopup)
         
-        let divider2 = NSBox(frame: NSRect(x: 20, y: 185, width: 320, height: 1))
+        let divider2 = NSBox(frame: NSRect(x: 20, y: 205, width: 360, height: 1))
         divider2.boxType = .separator
         contentView.addSubview(divider2)
         
-        // Search engine
+        // Search engine — popup + add/remove buttons
         let engineTitle = NSTextField(labelWithString: "Search engine")
         engineTitle.font = NSFont.systemFont(ofSize: 13, weight: .medium)
-        engineTitle.frame = NSRect(x: 20, y: 150, width: 320, height: 20)
+        engineTitle.frame = NSRect(x: 20, y: 170, width: 360, height: 20)
         contentView.addSubview(engineTitle)
         
-        enginePopup = NSPopUpButton(frame: NSRect(x: 20, y: 110, width: 320, height: 28))
-        enginePopup.addItems(withTitles: SearchEngine.allCases.map { $0.rawValue })
-        enginePopup.selectItem(withTitle: Preferences.shared.searchEngine.rawValue)
+        enginePopup = NSPopUpButton(frame: NSRect(x: 20, y: 130, width: 280, height: 28))
         enginePopup.target = self
         enginePopup.action = #selector(engineChanged)
         contentView.addSubview(enginePopup)
         
-        let divider3 = NSBox(frame: NSRect(x: 20, y: 90, width: 320, height: 1))
+        addEngineButton = NSButton(title: "+", target: self, action: #selector(addCustomEngine))
+        addEngineButton.bezelStyle = .rounded
+        addEngineButton.frame = NSRect(x: 308, y: 130, width: 32, height: 28)
+        contentView.addSubview(addEngineButton)
+        
+        removeEngineButton = NSButton(title: "−", target: self, action: #selector(removeCustomEngine))
+        removeEngineButton.bezelStyle = .rounded
+        removeEngineButton.frame = NSRect(x: 348, y: 130, width: 32, height: 28)
+        contentView.addSubview(removeEngineButton)
+        
+        let divider3 = NSBox(frame: NSRect(x: 20, y: 110, width: 360, height: 1))
         divider3.boxType = .separator
         contentView.addSubview(divider3)
         
         // Launch at login
         launchAtLoginCheckbox = NSButton(checkboxWithTitle: "Launch at login", target: self, action: #selector(launchAtLoginChanged))
-        launchAtLoginCheckbox.frame = NSRect(x: 20, y: 60, width: 320, height: 22)
-        launchAtLoginCheckbox.state = LaunchAtLogin.isEnabled ? .on : .off
+        launchAtLoginCheckbox.frame = NSRect(x: 20, y: 75, width: 360, height: 22)
         contentView.addSubview(launchAtLoginCheckbox)
         
         // Buttons
         let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancelClicked))
         cancelButton.bezelStyle = .rounded
         cancelButton.keyEquivalent = "\u{1B}"
-        cancelButton.frame = NSRect(x: 170, y: 20, width: 80, height: 32)
+        cancelButton.frame = NSRect(x: 210, y: 20, width: 80, height: 32)
         contentView.addSubview(cancelButton)
         
         let applyButton = NSButton(title: "Apply", target: self, action: #selector(applyClicked))
         applyButton.bezelStyle = .rounded
         applyButton.keyEquivalent = "\r"
-        applyButton.frame = NSRect(x: 260, y: 20, width: 80, height: 32)
+        applyButton.frame = NSRect(x: 300, y: 20, width: 80, height: 32)
         contentView.addSubview(applyButton)
+    }
+    
+    private func refreshEnginePopup() {
+        let engines = SearchEngine.allEngines()
+        enginePopup.removeAllItems()
+        for (index, engine) in engines.enumerated() {
+            enginePopup.addItem(withTitle: engine.displayName)
+            enginePopup.item(at: index)?.representedObject = engine.identifier
+        }
+        
+        // Select the pending engine if it still exists, otherwise default to first
+        if let index = engines.firstIndex(where: { $0.identifier == pendingEngineID }) {
+            enginePopup.selectItem(at: index)
+        } else {
+            enginePopup.selectItem(at: 0)
+            pendingEngineID = engines.first?.identifier ?? "builtin.googleLens"
+        }
+        
+        // Only enable remove button for custom engines
+        let isCustom = pendingEngineID.hasPrefix("custom.")
+        removeEngineButton.isEnabled = isCustom
     }
     
     @objc private func toggleRecording() {
@@ -156,9 +187,9 @@ class PreferencesWindow: NSWindowController {
     }
     
     @objc private func engineChanged() {
-        guard let title = enginePopup.titleOfSelectedItem,
-              let engine = SearchEngine.allCases.first(where: { $0.rawValue == title }) else { return }
-        pendingEngine = engine
+        guard let id = enginePopup.selectedItem?.representedObject as? String else { return }
+        pendingEngineID = id
+        removeEngineButton.isEnabled = id.hasPrefix("custom.")
         statusLabel.stringValue = "Pending — click Apply to save"
     }
     
@@ -174,11 +205,44 @@ class PreferencesWindow: NSWindowController {
         statusLabel.stringValue = "Pending — click Apply to save"
     }
     
+    @objc private func addCustomEngine() {
+        customEngineDialog = CustomEngineDialog()
+        customEngineDialog?.onSave = { [weak self] engine in
+            guard let self = self else { return }
+            // Save the custom engine immediately so it shows in the popup
+            var engines = Preferences.shared.customEngines
+            engines.append(engine)
+            Preferences.shared.customEngines = engines
+            
+            // Select the newly added engine
+            self.pendingEngineID = "custom.\(engine.id)"
+            self.refreshEnginePopup()
+            self.statusLabel.stringValue = "Added \(engine.name) — click Apply to save"
+        }
+        customEngineDialog?.showWindow()
+    }
+    
+    @objc private func removeCustomEngine() {
+        guard pendingEngineID.hasPrefix("custom.") else { return }
+        let idToRemove = String(pendingEngineID.dropFirst("custom.".count))
+        
+        var engines = Preferences.shared.customEngines
+        engines.removeAll(where: { $0.id == idToRemove })
+        Preferences.shared.customEngines = engines
+        
+        pendingEngineID = "builtin.googleLens"
+        refreshEnginePopup()
+        statusLabel.stringValue = "Removed — click Apply to save"
+    }
+    
     @objc private func applyClicked() {
         Preferences.shared.keyCode = pendingKeyCode
         Preferences.shared.modifiers = pendingModifiers
-        Preferences.shared.searchEngine = pendingEngine
         Preferences.shared.selectionMode = pendingMode
+        
+        if let engine = SearchEngine.allEngines().first(where: { $0.identifier == pendingEngineID }) {
+            Preferences.shared.searchEngine = engine
+        }
         
         if pendingLaunchAtLogin != LaunchAtLogin.isEnabled {
             LaunchAtLogin.setEnabled(pendingLaunchAtLogin)
@@ -221,15 +285,16 @@ class PreferencesWindow: NSWindowController {
     func showWindow() {
         pendingKeyCode = Preferences.shared.keyCode
         pendingModifiers = Preferences.shared.modifiers
-        pendingEngine = Preferences.shared.searchEngine
+        pendingEngineID = Preferences.shared.searchEngine.identifier
         pendingMode = Preferences.shared.selectionMode
         pendingLaunchAtLogin = LaunchAtLogin.isEnabled
         
         shortcutButton.title = Preferences.shared.shortcutString
-        enginePopup.selectItem(withTitle: Preferences.shared.searchEngine.rawValue)
         modePopup.selectItem(withTitle: Preferences.shared.selectionMode.rawValue)
         launchAtLoginCheckbox.state = LaunchAtLogin.isEnabled ? .on : .off
         statusLabel.stringValue = "Click the button, then press your desired key combo."
+        
+        refreshEnginePopup()
         
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
