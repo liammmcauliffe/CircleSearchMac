@@ -11,7 +11,7 @@ class LaunchAtLogin {
         do {
             if enabled {
                 if SMAppService.mainApp.status == .enabled {
-                    print("Launch at login already enabled")
+                    print("ℹ️ Launch at login already enabled")
                     return
                 }
                 try SMAppService.mainApp.register()
@@ -24,4 +24,5 @@ class LaunchAtLogin {
             print("Launch at login error: \(error)")
         }
     }
+
 }
