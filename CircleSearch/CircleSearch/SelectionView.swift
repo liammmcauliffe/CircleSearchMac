@@ -107,12 +107,19 @@ class SelectionView: NSView {
     private func proceedWithCapture(rect: NSRect, on screen: NSScreen) {
         OverlayWindow.shared.hide()
 
+        // View coords are screen-local (view origin is .zero, view size = screen size),
+        // so convert to global by offsetting by the screen's frame origin.
+        let globalCenter = NSPoint(
+            x: screen.frame.origin.x + rect.midX,
+            y: screen.frame.origin.y + rect.midY
+        )
+
         Task {
             try? await Task.sleep(nanoseconds: 150_000_000)
 
             guard let image = await ScreenCapture.capture(rect: rect, on: screen) else { return }
 
-            LoadingIndicatorWindow.shared.show(on: screen)
+            LoadingIndicatorWindow.shared.show(centeredAt: globalCenter, on: screen)
             defer { LoadingIndicatorWindow.shared.hide() }
 
             if let imageURL = await ImageUploader.upload(image) {
@@ -290,4 +297,9 @@ class SelectionView: NSView {
     }
     
     override var acceptsFirstResponder: Bool { true }
+
+    override func resetCursorRects() {
+        discardCursorRects()
+        addCursorRect(bounds, cursor: .crosshair)
+    }
 }

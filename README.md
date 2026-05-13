@@ -103,6 +103,20 @@ open CircleSearch.xcodeproj
 
 Then build and run with <kbd>⌘</kbd> + <kbd>R</kbd> in Xcode. There are no external dependencies — no SPM packages, no CocoaPods, just open and go.
 
+### Build a standalone `.app`
+
+To run CircleSearch without Xcode attached:
+
+1. In Xcode, select the **CircleSearch** scheme and **Any Mac** as the run destination.
+2. **Product → Archive** — Xcode builds a release archive and opens the Organizer.
+3. In the Organizer, click **Distribute App → Custom → Copy App**, then choose a folder to export to.
+4. Drag the exported `CircleSearch.app` into `/Applications`.
+5. Right-click → **Open** the first time (Gatekeeper prompt, since the build isn't notarized).
+6. Re-grant **Accessibility** and **Screen Recording** in **System Settings → Privacy & Security**. macOS treats the new bundle as a separate app for TCC purposes, so the grants you had on the Debug build don't carry over.
+
+> [!TIP]
+> If you replace `/Applications/CircleSearch.app` and the hotkey stops working, remove the old entries from **Privacy & Security → Accessibility** and **Screen Recording** and grant the new copy. macOS sometimes holds stale TCC records keyed on the old binary hash.
+
 ## Roadmap
 
 **v1 — shipped**
