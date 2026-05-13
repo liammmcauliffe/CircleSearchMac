@@ -41,7 +41,13 @@ A lightweight macOS menu bar app inspired by Google Pixel's *Circle to Search*. 
 5. The magnifying-glass icon appears in your menu bar — you're set.
 
 > [!NOTE]
-> The app isn't notarized yet. The first time you open it, right-click the app and choose **Open** to bypass Gatekeeper.
+> The app isn't notarized yet, so macOS will refuse the first launch with *"Apple could not verify CircleSearch is free of malware."* Bypass it once with either:
+>
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/CircleSearch.app
+> ```
+>
+> ...or open **System Settings → Privacy & Security**, scroll to the bottom, and click **Open Anyway** next to the CircleSearch block message. Notarization is on the [Support](#support) wishlist.
 
 ## Usage
 
@@ -111,7 +117,7 @@ To run CircleSearch without Xcode attached:
 2. **Product → Archive** — Xcode builds a release archive and opens the Organizer.
 3. In the Organizer, click **Distribute App → Custom → Copy App**, then choose a folder to export to.
 4. Drag the exported `CircleSearch.app` into `/Applications`.
-5. Right-click → **Open** the first time (Gatekeeper prompt, since the build isn't notarized).
+5. Double-click to launch. If you copied the `.app` across Macs (or your local copy somehow picked up a quarantine bit), strip it with `xattr -dr com.apple.quarantine /Applications/CircleSearch.app`.
 6. Re-grant **Accessibility** and **Screen Recording** in **System Settings → Privacy & Security**. macOS treats the new bundle as a separate app for TCC purposes, so the grants you had on the Debug build don't carry over.
 
 > [!TIP]
@@ -136,3 +142,9 @@ To run CircleSearch without Xcode attached:
 - [ ] Replace the third-party image host with a self-hosted backend
 - [ ] Clipboard-only mode (keep images local)
 - [ ] Auto-update support
+
+## Support
+
+CircleSearch is free and open source. If it's useful to you, you can support development on [Ko-fi](https://ko-fi.com/liammmcauliffe).
+
+The first goal is an [Apple Developer Program](https://developer.apple.com/programs/) membership (**$99/year**) so future releases can be **notarized** — that removes the Gatekeeper warning entirely and lets the app launch with a normal double-click, no Terminal commands or System Settings detour needed.
