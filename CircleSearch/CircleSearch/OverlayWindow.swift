@@ -55,6 +55,9 @@ class OverlayWindow: NSWindow {
             NSCursor.crosshair.push()
             didPushCursor = true
         }
+        // push() alone doesn't refresh the visible cursor if it's stationary
+        // (hand on keyboard pressing the hotkey) — force an immediate update.
+        NSCursor.crosshair.set()
     }
 
     func hide() {
@@ -111,13 +114,22 @@ class LoadingIndicatorWindow: NSWindow {
         self.contentView = visualEffect
     }
 
-    func show(on screen: NSScreen) {
-        let frame = screen.frame
+    func show(centeredAt globalPoint: NSPoint, on screen: NSScreen) {
         let size = self.frame.size
-        let origin = NSPoint(
-            x: frame.midX - size.width / 2,
-            y: frame.midY - size.height / 2
+        let screenFrame = screen.frame
+        let margin: CGFloat = 12
+
+        var origin = NSPoint(
+            x: globalPoint.x - size.width / 2,
+            y: globalPoint.y - size.height / 2
         )
+        // Clamp to screen so the indicator never lands off-screen when the
+        // user draws against an edge.
+        origin.x = max(screenFrame.minX + margin,
+                       min(origin.x, screenFrame.maxX - size.width - margin))
+        origin.y = max(screenFrame.minY + margin,
+                       min(origin.y, screenFrame.maxY - size.height - margin))
+
         self.setFrameOrigin(origin)
         progressIndicator.startAnimation(nil)
         self.orderFront(nil)
