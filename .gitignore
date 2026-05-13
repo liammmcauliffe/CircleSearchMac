@@ -4,6 +4,12 @@
 
 ## User settings
 xcuserdata/
+*.xcuserstate
+*.moved-aside
+
+## Build output (when Xcode is configured for project-relative DerivedData)
+DerivedData/
+build/
 
 ## Obj-C/Swift specific
 *.hmap
