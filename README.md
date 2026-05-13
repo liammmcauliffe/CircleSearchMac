@@ -113,14 +113,11 @@ Then build and run with <kbd>⌘</kbd> + <kbd>R</kbd> in Xcode. There are no ext
 - [x] Three built-in search engines + custom engines
 - [x] Customizable shortcut
 - [x] Launch at login
+- [x] Loading indicator during upload
+- [x] Crosshair cursor
+- [x] Multi-monitor support (overlay on the cursor's screen)
 
-**v2 — polish**
-
-- [ ] Loading indicator during upload
-- [ ] Crosshair cursor
-- [ ] Multi-monitor support (overlay on the cursor's screen)
-
-**v3 — self-hosted**
+**v2 — self-hosted**
 
 - [ ] Replace the third-party image host with a self-hosted backend
 - [ ] Clipboard-only mode (keep images local)

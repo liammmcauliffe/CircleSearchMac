@@ -106,12 +106,15 @@ class SelectionView: NSView {
     
     private func proceedWithCapture(rect: NSRect, on screen: NSScreen) {
         OverlayWindow.shared.hide()
-        
+
         Task {
             try? await Task.sleep(nanoseconds: 150_000_000)
-            
+
             guard let image = await ScreenCapture.capture(rect: rect, on: screen) else { return }
-            
+
+            LoadingIndicatorWindow.shared.show(on: screen)
+            defer { LoadingIndicatorWindow.shared.hide() }
+
             if let imageURL = await ImageUploader.upload(image) {
                 SearchLauncher.search(imageURL: imageURL)
             }
